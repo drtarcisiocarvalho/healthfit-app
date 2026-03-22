@@ -50,11 +50,15 @@ export function getSessionCookieOptions(
   const hostname = req.hostname;
   const domain = getParentDomain(hostname);
 
+  const secure = isSecureRequest(req);
+  // Use "lax" for same-site requests, "none" only when secure + cross-domain required
+  const sameSite: "lax" | "none" = domain ? "none" : "lax";
+
   return {
     domain,
     httpOnly: true,
     path: "/",
-    sameSite: "none",
-    secure: isSecureRequest(req),
+    sameSite,
+    secure: sameSite === "none" ? true : secure,
   };
 }

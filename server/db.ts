@@ -11,11 +11,19 @@ export async function getDb() {
     try {
       _db = drizzle(process.env.DATABASE_URL);
     } catch (error) {
-      console.warn("[Database] Failed to connect:", error);
+      // Avoid leaking connection string in error messages
+      console.warn("[Database] Failed to connect to database");
       _db = null;
     }
   }
   return _db;
+}
+
+// Sanitize string inputs to prevent injection via unexpected characters
+function sanitize(value: string | null | undefined): string | null {
+  if (value === null || value === undefined) return null;
+  // Remove null bytes and trim
+  return value.replace(/\0/g, "").trim();
 }
 
 export async function upsertUser(user: InsertUser): Promise<void> {
@@ -41,7 +49,7 @@ export async function upsertUser(user: InsertUser): Promise<void> {
     const assignNullable = (field: TextField) => {
       const value = user[field];
       if (value === undefined) return;
-      const normalized = value ?? null;
+      const normalized = sanitize(value);
       values[field] = normalized;
       updateSet[field] = normalized;
     };

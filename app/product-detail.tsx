@@ -1,11 +1,11 @@
 import { ScrollView, Text, View, TouchableOpacity, Image, Linking } from "react-native";
 import { useState, useEffect } from "react";
 import { router, useLocalSearchParams } from "expo-router";
-
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { ecommerceService, type Product } from "@/lib/ecommerce";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Haptics from "expo-haptics";
 
 export default function ProductDetailScreen() {
@@ -20,11 +20,13 @@ export default function ProductDetailScreen() {
 
   const loadProduct = async () => {
     const allProducts = await ecommerceService.getAllProducts();
-    const found = allProducts.find((p) => p.id === id);
+    const stored = await AsyncStorage.getItem("customProducts");
+    const custom: Product[] = stored ? JSON.parse(stored) : [];
+    const merged = [...custom, ...allProducts];
+    const found = merged.find((p) => p.id === id);
     if (found) {
       setProduct(found);
-      // Load related products from same category
-      const related = allProducts.filter((p) => p.category === found.category && p.id !== found.id).slice(0, 4);
+      const related = merged.filter((p) => p.category === found.category && p.id !== found.id).slice(0, 4);
       setRelatedProducts(related);
     }
   };
@@ -32,12 +34,17 @@ export default function ProductDetailScreen() {
   const handleBuyNow = async () => {
     if (!product) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
+
     // Track purchase
     await ecommerceService.trackPurchase(product.id, "user-1");
-    
-    // Open affiliate link
-    await Linking.openURL(product.affiliateUrl);
+
+    // If product has affiliate URL and is not a custom product, open link
+    // Otherwise, navigate to checkout with Stripe
+    if (product.affiliateUrl && !product.id.startsWith("custom-")) {
+      await Linking.openURL(product.affiliateUrl);
+    } else {
+      router.push(`/checkout?productId=${product.id}&productName=${encodeURIComponent(product.name)}&price=${product.price}` as any);
+    }
   };
 
   if (!product) {
@@ -154,16 +161,27 @@ export default function ProductDetailScreen() {
         </View>
       </ScrollView>
 
-      {/* Buy Button */}
+      {/* Buy Buttons */}
       <View className="p-6 border-t border-border" style={{ backgroundColor: colors.background }}>
         <TouchableOpacity
-          className="rounded-xl py-4 items-center"
+          className="rounded-xl py-4 items-center flex-row justify-center gap-2 mb-3"
           style={{ backgroundColor: colors.primary }}
           activeOpacity={0.8}
-          onPress={handleBuyNow}
+          onPress={() => router.push(`/checkout?productId=${product.id}&productName=${encodeURIComponent(product.name)}&price=${product.price}` as any)}
         >
-          <Text className="text-white text-lg font-bold">Comprar Agora</Text>
+          <IconSymbol name="lock.fill" size={18} color="#FFFFFF" />
+          <Text className="text-white text-lg font-bold">Pagar com Cartão</Text>
         </TouchableOpacity>
+        {product.affiliateUrl && !product.id.startsWith("custom-") && (
+          <TouchableOpacity
+            className="rounded-xl py-4 items-center border-2"
+            style={{ borderColor: colors.primary }}
+            activeOpacity={0.8}
+            onPress={handleBuyNow}
+          >
+            <Text className="text-primary text-lg font-bold">Comprar via Link</Text>
+          </TouchableOpacity>
+        )}
       </View>
     </ScreenContainer>
   );

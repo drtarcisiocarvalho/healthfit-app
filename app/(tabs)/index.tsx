@@ -7,6 +7,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { ecommerceService, type Product } from "@/lib/ecommerce";
+import { NewWorkoutModal } from "@/components/new-workout-modal";
 
 /**
  * Home Screen - NativeWind Example
@@ -35,6 +36,7 @@ export default function HomeScreen() {
   const [todayStats, setTodayStats] = useState({ calories: 0, minutes: 0, workouts: 0 });
   const [streak, setStreak] = useState(0);
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([]);
+  const [showNewWorkout, setShowNewWorkout] = useState(false);
 
   const loadStats = async () => {
     try {
@@ -141,6 +143,7 @@ export default function HomeScreen() {
           <TouchableOpacity
             className="flex-1 bg-surface rounded-xl p-4 border border-border items-center"
             activeOpacity={0.7}
+            onPress={() => setShowNewWorkout(true)}
           >
             <View className="w-12 h-12 rounded-full items-center justify-center mb-2" style={{ backgroundColor: colors.primary + "33" }}>
               <IconSymbol name="plus" size={24} color={colors.primary} />
@@ -150,6 +153,7 @@ export default function HomeScreen() {
           <TouchableOpacity
             className="flex-1 bg-surface rounded-xl p-4 border border-border items-center"
             activeOpacity={0.7}
+            onPress={() => router.push("/(tabs)/health" as any)}
           >
             <View className="w-12 h-12 rounded-full items-center justify-center mb-2" style={{ backgroundColor: colors.health + "33" }}>
               <IconSymbol name="heart.fill" size={24} color={colors.health} />
@@ -236,6 +240,16 @@ export default function HomeScreen() {
       >
         <IconSymbol name="sparkles" size={28} color="#FFFFFF" />
       </TouchableOpacity>
+
+      {/* Modal Novo Treino */}
+      <NewWorkoutModal
+        visible={showNewWorkout}
+        onClose={() => setShowNewWorkout(false)}
+        onSelectType={(type) => {
+          setShowNewWorkout(false);
+          router.push("/(tabs)/workouts" as any);
+        }}
+      />
     </ScreenContainer>
   );
 }

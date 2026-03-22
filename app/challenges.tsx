@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ScrollView, FlatList } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, FlatList, Modal, TextInput, Alert } from "react-native";
 import { router } from "expo-router";
 import { useState } from "react";
 import { ScreenContainer } from "@/components/screen-container";
@@ -99,6 +99,40 @@ const COMPLETED_CHALLENGES: Challenge[] = [
 export default function ChallengesScreen() {
   const colors = useColors();
   const [selectedTab, setSelectedTab] = useState<"active" | "completed">("active");
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+  const [newGoal, setNewGoal] = useState("");
+  const [customChallenges, setCustomChallenges] = useState<Challenge[]>([]);
+
+  const createChallenge = () => {
+    if (!newTitle.trim() || !newGoal.trim()) {
+      Alert.alert("Campos obrigatórios", "Preencha o título e a meta do desafio");
+      return;
+    }
+    const challenge: Challenge = {
+      id: `custom-${Date.now()}`,
+      title: newTitle,
+      description: newDescription || `Complete ${newGoal} dias`,
+      type: "weekly",
+      goal: parseInt(newGoal) || 7,
+      current: 0,
+      unit: "dias",
+      reward: 300,
+      participants: 1,
+      endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      icon: "star.fill",
+      color: "#4CAF50",
+    };
+    setCustomChallenges((prev) => [challenge, ...prev]);
+    setNewTitle("");
+    setNewDescription("");
+    setNewGoal("");
+    setShowCreateModal(false);
+    Alert.alert("Desafio criado!", `"${challenge.title}" foi adicionado aos seus desafios ativos.`);
+  };
+
+  const allActiveChallenges = [...customChallenges, ...ACTIVE_CHALLENGES];
 
   const renderChallenge = ({ item }: { item: Challenge }) => {
     const progress = (item.current / item.goal) * 100;
@@ -240,7 +274,7 @@ export default function ChallengesScreen() {
               className="font-semibold"
               style={{ color: selectedTab === "active" ? colors.health : colors.foreground }}
             >
-              Ativos ({ACTIVE_CHALLENGES.length})
+              Ativos ({allActiveChallenges.length})
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -264,7 +298,7 @@ export default function ChallengesScreen() {
 
         {/* Challenges List */}
         <FlatList
-          data={selectedTab === "active" ? ACTIVE_CHALLENGES : COMPLETED_CHALLENGES}
+          data={selectedTab === "active" ? allActiveChallenges : COMPLETED_CHALLENGES}
           renderItem={renderChallenge}
           keyExtractor={(item) => item.id}
           contentContainerStyle={{ padding: 24, paddingTop: 12 }}
@@ -282,11 +316,65 @@ export default function ChallengesScreen() {
             className="w-16 h-16 rounded-full items-center justify-center shadow-lg"
             style={{ backgroundColor: colors.health }}
             activeOpacity={0.8}
-            onPress={() => {}}
+            onPress={() => setShowCreateModal(true)}
           >
             <IconSymbol name="plus" size={28} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
+
+        {/* Create Challenge Modal */}
+        <Modal visible={showCreateModal} animationType="slide" transparent>
+          <View className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+            <View className="bg-background rounded-t-3xl p-6" style={{ backgroundColor: colors.background }}>
+              <View className="flex-row items-center justify-between mb-6">
+                <Text className="text-foreground text-xl font-bold">Novo Desafio</Text>
+                <TouchableOpacity onPress={() => setShowCreateModal(false)}>
+                  <IconSymbol name="xmark" size={24} color={colors.foreground} />
+                </TouchableOpacity>
+              </View>
+
+              <Text className="text-muted text-sm mb-2">Título *</Text>
+              <TextInput
+                className="bg-surface rounded-xl px-4 py-3 text-foreground border border-border mb-4"
+                placeholder="Ex: 30 dias de exercício"
+                placeholderTextColor={colors.muted}
+                value={newTitle}
+                onChangeText={setNewTitle}
+                style={{ color: colors.foreground }}
+              />
+
+              <Text className="text-muted text-sm mb-2">Descrição</Text>
+              <TextInput
+                className="bg-surface rounded-xl px-4 py-3 text-foreground border border-border mb-4"
+                placeholder="Descreva seu desafio"
+                placeholderTextColor={colors.muted}
+                value={newDescription}
+                onChangeText={setNewDescription}
+                style={{ color: colors.foreground }}
+              />
+
+              <Text className="text-muted text-sm mb-2">Meta (dias) *</Text>
+              <TextInput
+                className="bg-surface rounded-xl px-4 py-3 text-foreground border border-border mb-6"
+                placeholder="7"
+                placeholderTextColor={colors.muted}
+                value={newGoal}
+                onChangeText={setNewGoal}
+                keyboardType="numeric"
+                style={{ color: colors.foreground }}
+              />
+
+              <TouchableOpacity
+                className="rounded-xl p-4 items-center"
+                style={{ backgroundColor: colors.health }}
+                activeOpacity={0.8}
+                onPress={createChallenge}
+              >
+                <Text className="text-white font-bold text-lg">Criar Desafio</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </View>
     </ScreenContainer>
   );

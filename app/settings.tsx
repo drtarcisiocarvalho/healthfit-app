@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, ScrollView, Switch, Alert } from "react-n
 import { router } from "expo-router";
 import { useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as LocalAuthentication from "expo-local-authentication";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
@@ -23,10 +24,25 @@ export default function SettingsScreen() {
     offlineMode: false,
     biometricAuth: false,
   });
+  const [hasPin, setHasPin] = useState(false);
+  const [hasBiometricHw, setHasBiometricHw] = useState(false);
 
   useEffect(() => {
     loadSettings();
+    checkPinAndBiometric();
   }, []);
+
+  const checkPinAndBiometric = async () => {
+    const pin = await AsyncStorage.getItem("userPin");
+    setHasPin(!!pin);
+    const compatible = await LocalAuthentication.hasHardwareAsync();
+    const enrolled = await LocalAuthentication.isEnrolledAsync();
+    setHasBiometricHw(compatible && enrolled);
+    const bioEnabled = await AsyncStorage.getItem("biometricEnabled");
+    if (bioEnabled === "true") {
+      setSettings((prev) => ({ ...prev, biometricAuth: true }));
+    }
+  };
 
   const loadSettings = async () => {
     try {
@@ -40,6 +56,22 @@ export default function SettingsScreen() {
   };
 
   const saveSetting = async (key: keyof Settings, value: boolean) => {
+    // Handle biometric toggle specially
+    if (key === "biometricAuth") {
+      if (value && !hasPin) {
+        Alert.alert("PIN necessário", "Configure um PIN primeiro para habilitar a biometria.", [
+          { text: "Cancelar" },
+          { text: "Configurar PIN", onPress: () => router.push("/login" as any) },
+        ]);
+        return;
+      }
+      if (value && !hasBiometricHw) {
+        Alert.alert("Indisponível", "Seu dispositivo não suporta autenticação biométrica.");
+        return;
+      }
+      await AsyncStorage.setItem("biometricEnabled", value ? "true" : "false");
+    }
+
     try {
       const newSettings = { ...settings, [key]: value };
       setSettings(newSettings);
@@ -173,6 +205,39 @@ export default function SettingsScreen() {
 
           {/* Actions */}
           <View className="mt-6 gap-3">
+            <TouchableOpacity
+              className="bg-surface rounded-xl p-4 border border-border flex-row items-center justify-between"
+              onPress={() => {
+                if (hasPin) {
+                  Alert.alert("PIN de Acesso", "Você já tem um PIN configurado.", [
+                    { text: "OK" },
+                    {
+                      text: "Redefinir PIN",
+                      style: "destructive",
+                      onPress: async () => {
+                        await AsyncStorage.removeItem("userPin");
+                        await AsyncStorage.removeItem("biometricEnabled");
+                        setHasPin(false);
+                        setSettings((prev) => ({ ...prev, biometricAuth: false }));
+                        Alert.alert("PIN Removido", "Abra o app novamente para configurar um novo PIN.");
+                      },
+                    },
+                  ]);
+                } else {
+                  router.push("/login" as any);
+                }
+              }}
+              activeOpacity={0.7}
+            >
+              <View className="flex-row items-center gap-3">
+                <IconSymbol name="lock.fill" size={20} color={colors.primary} />
+                <Text className="text-foreground font-semibold">
+                  {hasPin ? "PIN Configurado" : "Configurar PIN de Acesso"}
+                </Text>
+              </View>
+              <IconSymbol name="chevron.right" size={20} color={colors.muted} />
+            </TouchableOpacity>
+
             <TouchableOpacity
               className="bg-surface rounded-xl p-4 border border-border flex-row items-center justify-between"
               onPress={clearCache}

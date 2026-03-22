@@ -4,10 +4,44 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
 import { invokeLLM } from "./_core/llm";
+import { professionalsRouter, appItemsRouter } from "./admin-routers";
 
 export const appRouter = router({
-  // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
+  professionals: professionalsRouter,
+  appItems: appItemsRouter,
+
+  // Stripe payment (server-side - secret key never exposed to frontend)
+  payments: router({
+    createIntent: publicProcedure
+      .input(
+        z.object({
+          amount: z.number().positive(),
+          currency: z.string().default("brl"),
+          productId: z.string(),
+          productName: z.string(),
+        })
+      )
+      .mutation(async ({ input }) => {
+        // In production, use Stripe SDK with STRIPE_SECRET_KEY
+        // const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+        // const intent = await stripe.paymentIntents.create({
+        //   amount: Math.round(input.amount * 100),
+        //   currency: input.currency,
+        //   metadata: { productId: input.productId, productName: input.productName },
+        // });
+        // return { clientSecret: intent.client_secret, id: intent.id };
+
+        // Simulated for development
+        const id = `pi_${Date.now()}`;
+        return {
+          clientSecret: `${id}_secret_dev`,
+          id,
+          amount: Math.round(input.amount * 100),
+          currency: input.currency,
+        };
+      }),
+  }),
   auth: router({
     me: publicProcedure.query((opts) => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {

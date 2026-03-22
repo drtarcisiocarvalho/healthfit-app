@@ -1,5 +1,5 @@
 import "@/global.css";
-import { Stack } from "expo-router";
+import { Stack, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
@@ -8,8 +8,9 @@ import { ThemeProvider } from "@/lib/theme-provider";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useEffect, useState } from "react";
 import { offlineSyncService } from "@/lib/offline-sync";
-import { View, Text, ActivityIndicator } from "react-native";
+import { View, Text } from "react-native";
 import * as SplashScreen from "expo-splash-screen";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -21,26 +22,38 @@ export const unstable_settings = {
 export default function RootLayout() {
   const [appIsReady, setAppIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsAuth, setNeedsAuth] = useState(false);
 
   useEffect(() => {
     async function prepare() {
       try {
         // Inicializar serviço de sincronização offline
         await offlineSyncService.syncPendingData();
-        
+
+        // Check if PIN is set (requires login)
+        const storedPin = await AsyncStorage.getItem("userPin");
+        setNeedsAuth(!!storedPin);
+
         // Aguardar um pouco para garantir que tudo carregou
         await new Promise(resolve => setTimeout(resolve, 1000));
-        
+
         setAppIsReady(true);
       } catch (e) {
         console.error("Error loading app:", e);
         setError(e instanceof Error ? e.message : "Erro ao carregar o app");
-        setAppIsReady(true); // Mostrar erro ao invés de travar
+        setAppIsReady(true);
       }
     }
 
     prepare();
   }, []);
+
+  useEffect(() => {
+    if (appIsReady && needsAuth) {
+      // Redirect to login if PIN is configured
+      setTimeout(() => router.replace("/login" as any), 100);
+    }
+  }, [appIsReady, needsAuth]);
 
   useEffect(() => {
     if (appIsReady) {
@@ -69,6 +82,8 @@ export default function RootLayout() {
         <GestureHandlerRootView style={{ flex: 1 }}>
           <Stack screenOptions={{ headerShown: false }}>
             <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="login" />
+            <Stack.Screen name="checkout" />
             <Stack.Screen name="oauth/callback" />
           </Stack>
           <StatusBar style="auto" />

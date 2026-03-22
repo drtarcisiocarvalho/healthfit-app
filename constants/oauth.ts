@@ -46,10 +46,13 @@ export function getApiBaseUrl(): string {
       }
     }
 
-    // On mobile (iOS/Android), use the sandbox URL directly
+    // On mobile (iOS/Android), use the server URL from env
     if (ReactNative.Platform.OS !== "web") {
-      // Use the hardcoded sandbox URL for mobile development
-      return "https://3000-ilv3ahzpfu14gfavhltoc-84785619.us2.manus.computer";
+      const mobileApiUrl = process.env.EXPO_PUBLIC_API_BASE_URL ?? "";
+      if (mobileApiUrl) return mobileApiUrl.replace(/\/$/, "");
+      // Fallback: should be configured via EXPO_PUBLIC_API_BASE_URL
+      console.warn("[OAuth] EXPO_PUBLIC_API_BASE_URL not set for mobile");
+      return "";
     }
 
     // Fallback to empty (will use relative URL)

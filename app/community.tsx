@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, FlatList, Image } from "react-native";
+import { View, Text, TouchableOpacity, FlatList, Image, Modal, TextInput, Alert } from "react-native";
 import { router } from "expo-router";
 import { useState } from "react";
 import { ScreenContainer } from "@/components/screen-container";
@@ -86,6 +86,38 @@ const POSTS: Post[] = [
 export default function CommunityScreen() {
   const colors = useColors();
   const [posts, setPosts] = useState(POSTS);
+  const [selectedTab, setSelectedTab] = useState<"feed" | "friends" | "groups">("feed");
+  const [showPostModal, setShowPostModal] = useState(false);
+  const [newPostContent, setNewPostContent] = useState("");
+
+  const handleCreatePost = () => {
+    if (!newPostContent.trim()) {
+      Alert.alert("Conteúdo vazio", "Escreva algo para compartilhar");
+      return;
+    }
+    const newPost: Post = {
+      id: `post-${Date.now()}`,
+      user: { name: "Você", avatar: "💪", level: 5 },
+      type: "progress",
+      content: newPostContent,
+      likes: 0,
+      comments: 0,
+      timestamp: "Agora",
+      liked: false,
+    };
+    setPosts((prev) => [newPost, ...prev]);
+    setNewPostContent("");
+    setShowPostModal(false);
+    Alert.alert("Publicado!", "Seu post foi compartilhado com a comunidade.");
+  };
+
+  const handleComment = (postId: string) => {
+    Alert.alert("Comentários", "Funcionalidade de comentários em breve!");
+  };
+
+  const handleShare = (postId: string) => {
+    Alert.alert("Compartilhar", "Link copiado para compartilhar!");
+  };
 
   const handleLike = (postId: string) => {
     setPosts((prev) =>
@@ -188,11 +220,11 @@ export default function CommunityScreen() {
               {item.likes}
             </Text>
           </TouchableOpacity>
-          <TouchableOpacity className="flex-row items-center gap-2" activeOpacity={0.7}>
+          <TouchableOpacity className="flex-row items-center gap-2" activeOpacity={0.7} onPress={() => handleComment(item.id)}>
             <IconSymbol name="bubble.left" size={20} color={colors.muted} />
             <Text className="text-muted font-semibold">{item.comments}</Text>
           </TouchableOpacity>
-          <TouchableOpacity className="flex-row items-center gap-2" activeOpacity={0.7}>
+          <TouchableOpacity className="flex-row items-center gap-2" activeOpacity={0.7} onPress={() => handleShare(item.id)}>
             <IconSymbol name="paperplane" size={20} color={colors.muted} />
             <Text className="text-muted font-semibold">Compartilhar</Text>
           </TouchableOpacity>
@@ -217,29 +249,28 @@ export default function CommunityScreen() {
 
         {/* Tabs */}
         <View className="flex-row px-6 py-3 gap-3 border-b border-border">
-          <TouchableOpacity
-            className="flex-1 py-2 rounded-xl items-center"
-            style={{ backgroundColor: colors.health + "20" }}
-            activeOpacity={0.7}
-          >
-            <Text className="font-semibold" style={{ color: colors.health }}>
-              Feed
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            className="flex-1 py-2 rounded-xl items-center"
-            style={{ backgroundColor: colors.surface }}
-            activeOpacity={0.7}
-          >
-            <Text className="text-foreground font-semibold">Amigos</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            className="flex-1 py-2 rounded-xl items-center"
-            style={{ backgroundColor: colors.surface }}
-            activeOpacity={0.7}
-          >
-            <Text className="text-foreground font-semibold">Grupos</Text>
-          </TouchableOpacity>
+          {([
+            { id: "feed" as const, label: "Feed" },
+            { id: "friends" as const, label: "Amigos" },
+            { id: "groups" as const, label: "Grupos" },
+          ]).map((tab) => (
+            <TouchableOpacity
+              key={tab.id}
+              className="flex-1 py-2 rounded-xl items-center"
+              style={{
+                backgroundColor: selectedTab === tab.id ? colors.health + "20" : colors.surface,
+              }}
+              activeOpacity={0.7}
+              onPress={() => setSelectedTab(tab.id)}
+            >
+              <Text
+                className="font-semibold"
+                style={{ color: selectedTab === tab.id ? colors.health : colors.foreground }}
+              >
+                {tab.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
         {/* Feed */}
@@ -264,6 +295,7 @@ export default function CommunityScreen() {
                   className="px-4 py-2 rounded-xl"
                   style={{ backgroundColor: colors.health }}
                   activeOpacity={0.8}
+                  onPress={() => setShowPostModal(true)}
                 >
                   <Text className="text-white font-semibold">Postar</Text>
                 </TouchableOpacity>
@@ -278,11 +310,46 @@ export default function CommunityScreen() {
             className="w-16 h-16 rounded-full items-center justify-center shadow-lg"
             style={{ backgroundColor: colors.health }}
             activeOpacity={0.8}
-            onPress={() => {}}
+            onPress={() => setShowPostModal(true)}
           >
             <IconSymbol name="plus" size={28} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
+
+        {/* Create Post Modal */}
+        <Modal visible={showPostModal} animationType="slide" transparent>
+          <View className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+            <View className="rounded-t-3xl p-6" style={{ backgroundColor: colors.background }}>
+              <View className="flex-row items-center justify-between mb-6">
+                <Text className="text-foreground text-xl font-bold">Nova Publicação</Text>
+                <TouchableOpacity onPress={() => setShowPostModal(false)}>
+                  <IconSymbol name="xmark" size={24} color={colors.foreground} />
+                </TouchableOpacity>
+              </View>
+
+              <TextInput
+                className="bg-surface rounded-xl px-4 py-3 border border-border mb-6"
+                placeholder="Compartilhe seu progresso, treino ou conquista..."
+                placeholderTextColor={colors.muted}
+                value={newPostContent}
+                onChangeText={setNewPostContent}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+                style={{ color: colors.foreground, minHeight: 120 }}
+              />
+
+              <TouchableOpacity
+                className="rounded-xl p-4 items-center"
+                style={{ backgroundColor: colors.health }}
+                activeOpacity={0.8}
+                onPress={handleCreatePost}
+              >
+                <Text className="text-white font-bold text-lg">Publicar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </View>
     </ScreenContainer>
   );

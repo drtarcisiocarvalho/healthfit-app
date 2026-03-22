@@ -272,16 +272,18 @@ Forneça 3 insights acionáveis e personalizados em formato de lista.
 
           {/* Refresh Button */}
           <TouchableOpacity
-            className="rounded-xl p-4 items-center border-2"
-            style={{ borderColor: colors.health }}
+            className="rounded-xl p-4 items-center flex-row justify-center gap-2"
+            style={{ backgroundColor: colors.health, marginBottom: 24 }}
             activeOpacity={0.8}
             onPress={() => {
               setLoading(true);
+              setAiAnalysis("");
               loadInsights();
               generateAIInsights();
             }}
           >
-            <Text className="font-semibold" style={{ color: colors.health }}>
+            <IconSymbol name="arrow.clockwise" size={20} color="#FFFFFF" />
+            <Text className="font-semibold text-white">
               Atualizar Análise
             </Text>
           </TouchableOpacity>

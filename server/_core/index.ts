@@ -6,6 +6,8 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
+import { ENV } from "./env";
+import { rateLimit } from "./rate-limit";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -30,12 +32,25 @@ async function startServer() {
   const app = express();
   const server = createServer(app);
 
-  // Enable CORS for all routes - reflect the request origin to support credentials
+  // CORS with origin validation
   app.use((req, res, next) => {
     const origin = req.headers.origin;
-    if (origin) {
+
+    // In development, allow the Manus sandbox origins and localhost
+    const isAllowed =
+      !origin ||
+      ENV.allowedOrigins.includes(origin) ||
+      (!ENV.isProduction && (
+        origin.includes("localhost") ||
+        origin.includes("127.0.0.1") ||
+        origin.includes(".manus.computer") ||
+        origin.includes(".manus.im")
+      ));
+
+    if (isAllowed && origin) {
       res.header("Access-Control-Allow-Origin", origin);
     }
+
     res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
     res.header(
       "Access-Control-Allow-Headers",
@@ -43,7 +58,12 @@ async function startServer() {
     );
     res.header("Access-Control-Allow-Credentials", "true");
 
-    // Handle preflight requests
+    // Security headers
+    res.header("X-Content-Type-Options", "nosniff");
+    res.header("X-Frame-Options", "DENY");
+    res.header("X-XSS-Protection", "1; mode=block");
+    res.header("Referrer-Policy", "strict-origin-when-cross-origin");
+
     if (req.method === "OPTIONS") {
       res.sendStatus(200);
       return;
@@ -51,8 +71,12 @@ async function startServer() {
     next();
   });
 
-  app.use(express.json({ limit: "50mb" }));
-  app.use(express.urlencoded({ limit: "50mb", extended: true }));
+  app.use(express.json({ limit: "10mb" }));
+  app.use(express.urlencoded({ limit: "10mb", extended: true }));
+
+  // Rate limiting - prevent brute force and abuse
+  app.use("/api/auth", rateLimit({ windowMs: 60_000, max: 20, message: "Too many auth requests" }));
+  app.use("/api/trpc", rateLimit({ windowMs: 60_000, max: 200 }));
 
   registerOAuthRoutes(app);
 

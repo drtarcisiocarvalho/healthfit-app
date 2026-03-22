@@ -35,6 +35,7 @@ export default function ProfileScreen() {
     { icon: "antenna.radiowaves.left.and.right", title: "Dispositivos Bluetooth", color: colors.health, action: () => router.push("/bluetooth-devices") },
     { icon: "bell.fill", title: "Notificações", color: colors.health, action: () => router.push("/notifications-settings") },
     { icon: "square.and.arrow.up", title: "Exportar Dados", color: colors.medical, action: () => router.push("/export-data") },
+    { icon: "gearshape.fill", title: "Painel Admin", color: colors.error, action: () => router.push("/admin" as any) },
     { icon: "gear", title: "Configurações", color: colors.muted, action: () => router.push("/settings" as any) },
   ];
 

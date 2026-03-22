@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ScrollView, FlatList, Alert } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, FlatList, Alert, Modal, TextInput } from "react-native";
 import { router } from "expo-router";
 import { useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -31,9 +31,30 @@ const MEAL_TYPES = {
   snack: { name: "Lanche", icon: "fork.knife", color: "#4CAF50" },
 };
 
+const FOOD_DATABASE = [
+  { name: "Arroz branco (100g)", calories: 130, protein: 2.7, carbs: 28, fat: 0.3 },
+  { name: "Feijão preto (100g)", calories: 77, protein: 5, carbs: 14, fat: 0.5 },
+  { name: "Frango grelhado (100g)", calories: 165, protein: 31, carbs: 0, fat: 3.6 },
+  { name: "Ovo cozido (1 un)", calories: 78, protein: 6, carbs: 0.6, fat: 5 },
+  { name: "Banana (1 un)", calories: 89, protein: 1.1, carbs: 23, fat: 0.3 },
+  { name: "Pão francês (1 un)", calories: 150, protein: 5, carbs: 28, fat: 1.5 },
+  { name: "Batata doce (100g)", calories: 86, protein: 1.6, carbs: 20, fat: 0.1 },
+  { name: "Leite integral (200ml)", calories: 120, protein: 6, carbs: 10, fat: 6 },
+  { name: "Iogurte natural (170g)", calories: 100, protein: 6, carbs: 12, fat: 3.5 },
+  { name: "Aveia (30g)", calories: 117, protein: 4, carbs: 20, fat: 2.4 },
+  { name: "Salmão (100g)", calories: 208, protein: 20, carbs: 0, fat: 13 },
+  { name: "Brócolis (100g)", calories: 34, protein: 2.8, carbs: 7, fat: 0.4 },
+];
+
 export default function NutritionScreen() {
   const colors = useColors();
   const [meals, setMeals] = useState<Meal[]>([]);
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [addMealName, setAddMealName] = useState("");
+  const [addMealCalories, setAddMealCalories] = useState("");
+  const [addMealType, setAddMealType] = useState<Meal["type"]>("lunch");
   const [dailyGoals] = useState<DailyGoals>({
     calories: 2000,
     protein: 150,
@@ -62,6 +83,65 @@ export default function NutritionScreen() {
       console.error("Erro ao carregar refeições:", error);
     }
   };
+
+  const getMealTypeForTime = (): Meal["type"] => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 11) return "breakfast";
+    if (hour >= 11 && hour < 15) return "lunch";
+    if (hour >= 18 && hour < 23) return "dinner";
+    return "snack";
+  };
+
+  const addFoodFromSearch = async (food: typeof FOOD_DATABASE[0]) => {
+    const meal: Meal = {
+      id: Date.now().toString(),
+      name: food.name,
+      type: getMealTypeForTime(),
+      calories: food.calories,
+      protein: food.protein,
+      carbs: food.carbs,
+      fat: food.fat,
+      timestamp: Date.now(),
+    };
+    const mealsData = await AsyncStorage.getItem("meals");
+    const allMeals = mealsData ? JSON.parse(mealsData) : [];
+    allMeals.push(meal);
+    await AsyncStorage.setItem("meals", JSON.stringify(allMeals));
+    setMeals((prev) => [...prev, meal]);
+    setShowSearchModal(false);
+    setSearchQuery("");
+    Alert.alert("Adicionado!", `${food.name} registrado com sucesso.`);
+  };
+
+  const addManualMeal = async () => {
+    if (!addMealName.trim() || !addMealCalories.trim()) {
+      Alert.alert("Campos obrigatórios", "Preencha o nome e as calorias");
+      return;
+    }
+    const meal: Meal = {
+      id: Date.now().toString(),
+      name: addMealName,
+      type: addMealType,
+      calories: parseInt(addMealCalories) || 0,
+      protein: 0,
+      carbs: 0,
+      fat: 0,
+      timestamp: Date.now(),
+    };
+    const mealsData = await AsyncStorage.getItem("meals");
+    const allMeals = mealsData ? JSON.parse(mealsData) : [];
+    allMeals.push(meal);
+    await AsyncStorage.setItem("meals", JSON.stringify(allMeals));
+    setMeals((prev) => [...prev, meal]);
+    setAddMealName("");
+    setAddMealCalories("");
+    setShowAddModal(false);
+    Alert.alert("Adicionado!", `${meal.name} registrado com sucesso.`);
+  };
+
+  const filteredFoods = FOOD_DATABASE.filter((f) =>
+    f.name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const calculateTotals = () => {
     return meals.reduce(
@@ -189,7 +269,7 @@ export default function NutritionScreen() {
               <TouchableOpacity
                 className="flex-1 bg-surface rounded-xl p-4 items-center border border-border"
                 activeOpacity={0.7}
-                onPress={() => Alert.alert("Buscar Alimentos", "Funcionalidade em desenvolvimento")}
+                onPress={() => setShowSearchModal(true)}
               >
                 <IconSymbol name="magnifyingglass" size={32} color={colors.health} />
                 <Text className="text-foreground font-semibold mt-2">Buscar</Text>
@@ -235,11 +315,125 @@ export default function NutritionScreen() {
             className="w-16 h-16 rounded-full items-center justify-center shadow-lg"
             style={{ backgroundColor: colors.health }}
             activeOpacity={0.8}
-            onPress={() => Alert.alert("Adicionar Refeição", "Funcionalidade em desenvolvimento")}
+            onPress={() => setShowAddModal(true)}
           >
             <IconSymbol name="plus" size={28} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
+
+        {/* Search Food Modal */}
+        <Modal visible={showSearchModal} animationType="slide" transparent>
+          <View className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+            <View className="rounded-t-3xl p-6" style={{ backgroundColor: colors.background, maxHeight: "80%" }}>
+              <View className="flex-row items-center justify-between mb-4">
+                <Text className="text-foreground text-xl font-bold">Buscar Alimentos</Text>
+                <TouchableOpacity onPress={() => { setShowSearchModal(false); setSearchQuery(""); }}>
+                  <IconSymbol name="xmark" size={24} color={colors.foreground} />
+                </TouchableOpacity>
+              </View>
+
+              <View className="bg-surface rounded-xl px-4 py-3 flex-row items-center border border-border mb-4">
+                <IconSymbol name="magnifyingglass" size={20} color={colors.muted} />
+                <TextInput
+                  className="flex-1 ml-2"
+                  placeholder="Buscar alimento..."
+                  placeholderTextColor={colors.muted}
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  autoFocus
+                  style={{ color: colors.foreground }}
+                />
+              </View>
+
+              <FlatList
+                data={filteredFoods}
+                keyExtractor={(item) => item.name}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    className="bg-surface rounded-xl p-4 mb-2 border border-border"
+                    activeOpacity={0.7}
+                    onPress={() => addFoodFromSearch(item)}
+                  >
+                    <Text className="text-foreground font-bold mb-1">{item.name}</Text>
+                    <View className="flex-row gap-4">
+                      <Text className="text-muted text-xs">{item.calories} kcal</Text>
+                      <Text className="text-muted text-xs">P: {item.protein}g</Text>
+                      <Text className="text-muted text-xs">C: {item.carbs}g</Text>
+                      <Text className="text-muted text-xs">G: {item.fat}g</Text>
+                    </View>
+                  </TouchableOpacity>
+                )}
+                ListEmptyComponent={
+                  <Text className="text-muted text-center py-8">Nenhum alimento encontrado</Text>
+                }
+              />
+            </View>
+          </View>
+        </Modal>
+
+        {/* Add Meal Modal */}
+        <Modal visible={showAddModal} animationType="slide" transparent>
+          <View className="flex-1 justify-end" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+            <View className="rounded-t-3xl p-6" style={{ backgroundColor: colors.background }}>
+              <View className="flex-row items-center justify-between mb-6">
+                <Text className="text-foreground text-xl font-bold">Adicionar Refeição</Text>
+                <TouchableOpacity onPress={() => setShowAddModal(false)}>
+                  <IconSymbol name="xmark" size={24} color={colors.foreground} />
+                </TouchableOpacity>
+              </View>
+
+              <Text className="text-muted text-sm mb-2">Tipo de refeição</Text>
+              <View className="flex-row gap-2 mb-4">
+                {(Object.entries(MEAL_TYPES) as [Meal["type"], typeof MEAL_TYPES["breakfast"]][]).map(([key, val]) => (
+                  <TouchableOpacity
+                    key={key}
+                    className="flex-1 py-2 rounded-xl items-center"
+                    style={{
+                      backgroundColor: addMealType === key ? val.color + "30" : colors.surface,
+                      borderWidth: 1,
+                      borderColor: addMealType === key ? val.color : colors.border,
+                    }}
+                    onPress={() => setAddMealType(key)}
+                  >
+                    <Text className="text-xs font-semibold" style={{ color: addMealType === key ? val.color : colors.foreground }}>
+                      {val.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text className="text-muted text-sm mb-2">Nome *</Text>
+              <TextInput
+                className="bg-surface rounded-xl px-4 py-3 border border-border mb-4"
+                placeholder="Ex: Arroz com feijão"
+                placeholderTextColor={colors.muted}
+                value={addMealName}
+                onChangeText={setAddMealName}
+                style={{ color: colors.foreground }}
+              />
+
+              <Text className="text-muted text-sm mb-2">Calorias (kcal) *</Text>
+              <TextInput
+                className="bg-surface rounded-xl px-4 py-3 border border-border mb-6"
+                placeholder="500"
+                placeholderTextColor={colors.muted}
+                value={addMealCalories}
+                onChangeText={setAddMealCalories}
+                keyboardType="numeric"
+                style={{ color: colors.foreground }}
+              />
+
+              <TouchableOpacity
+                className="rounded-xl p-4 items-center"
+                style={{ backgroundColor: colors.health }}
+                activeOpacity={0.8}
+                onPress={addManualMeal}
+              >
+                <Text className="text-white font-bold text-lg">Adicionar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </View>
     </ScreenContainer>
   );

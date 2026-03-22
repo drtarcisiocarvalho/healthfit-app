@@ -1,8 +1,7 @@
 import { View, Text, TouchableOpacity, ScrollView, Image } from "react-native";
 import { router } from "expo-router";
 import { useState, useEffect } from "react";
-import { useAudioPlayer, setAudioModeAsync } from "expo-audio";
-import { VideoView, useVideoPlayer } from "expo-video";
+import * as Speech from "expo-speech";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
@@ -12,8 +11,7 @@ interface TutorialStep {
   id: string;
   title: string;
   description: string;
-  audioPath: string;
-  videoPath?: string;
+  speech: string;
   icon: string;
 }
 
@@ -22,50 +20,56 @@ const TUTORIAL_STEPS: TutorialStep[] = [
     id: "welcome",
     title: "Boas-vindas",
     description: "Conheça a Sofia, sua assistente virtual no HealthFit!",
-    audioPath: require("@/assets/audio/tutorial-welcome.wav"),
-    videoPath: require("@/assets/videos/tutorial-welcome.mp4"),
+    speech:
+      "Olá! Eu sou a Sofia, sua assistente virtual no HealthFit. Estou aqui para te ajudar em toda sua jornada de saúde e bem-estar. Vamos conhecer juntos as funcionalidades do app!",
     icon: "👋",
   },
   {
     id: "avatar3d",
     title: "Scanner Corporal 3D",
     description: "Tire fotos e obtenha suas medidas corporais com IA",
-    audioPath: require("@/assets/audio/tutorial-avatar3d.wav"),
+    speech:
+      "Com o Scanner Corporal 3D, você pode tirar fotos e nossa inteligência artificial calcula automaticamente suas medidas corporais, como percentual de gordura, circunferências e composição corporal.",
     icon: "📸",
   },
   {
     id: "workouts",
     title: "Treinos Personalizados",
     description: "Exercícios com rastreamento GPS e monitoramento cardíaco",
-    audioPath: require("@/assets/audio/tutorial-workouts.wav"),
+    speech:
+      "Na seção de treinos, você encontra exercícios personalizados para seu nível. O app rastreia sua localização por GPS durante corridas e monitora seus batimentos cardíacos em tempo real.",
     icon: "💪",
   },
   {
     id: "nutrition",
     title: "Nutrição Inteligente",
     description: "Análise de refeições por foto e contagem de calorias",
-    audioPath: require("@/assets/audio/tutorial-nutrition.wav"),
+    speech:
+      "A nutrição inteligente analisa suas refeições por foto usando inteligência artificial. Basta tirar uma foto do seu prato e o app calcula automaticamente as calorias, proteínas, carboidratos e gorduras.",
     icon: "🍎",
   },
   {
     id: "health",
     title: "Monitoramento de Saúde",
     description: "Sinais vitais, insights e evolução do avatar 3D",
-    audioPath: require("@/assets/audio/tutorial-health.wav"),
+    speech:
+      "Monitore seus sinais vitais como pressão arterial, frequência cardíaca e saturação de oxigênio. O app gera insights personalizados e acompanha a evolução do seu avatar 3D ao longo do tempo.",
     icon: "❤️",
   },
   {
     id: "store",
     title: "Loja Wellness",
     description: "Produtos saudáveis com cashback exclusivo",
-    audioPath: require("@/assets/audio/tutorial-store.wav"),
+    speech:
+      "Na Loja Wellness, você encontra suplementos, equipamentos e roupas esportivas com cashback exclusivo. Quanto mais você compra, mais pontos acumula para descontos futuros.",
     icon: "🛒",
   },
   {
     id: "conclusion",
     title: "Pronto para Começar!",
     description: "Sua jornada de transformação começa agora",
-    audioPath: require("@/assets/audio/tutorial-conclusion.wav"),
+    speech:
+      "Parabéns! Agora você conhece todas as funcionalidades do HealthFit. Sua jornada de transformação começa agora. Lembre-se: consistência é a chave para alcançar seus objetivos. Vamos juntos!",
     icon: "🎉",
   },
 ];
@@ -73,38 +77,39 @@ const TUTORIAL_STEPS: TutorialStep[] = [
 export default function TutorialScreen() {
   const colors = useColors();
   const [currentStep, setCurrentStep] = useState(0);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const player = useAudioPlayer(TUTORIAL_STEPS[currentStep].audioPath);
+  const [isSpeaking, setIsSpeaking] = useState(false);
 
   useEffect(() => {
-    // Configurar modo de áudio para tocar mesmo no modo silencioso
-    setAudioModeAsync({ playsInSilentMode: true });
-
     return () => {
-      player.release();
+      Speech.stop();
     };
   }, []);
 
   useEffect(() => {
-    // Atualizar fonte de áudio quando mudar de step
-    player.replace(TUTORIAL_STEPS[currentStep].audioPath);
-    setIsPlaying(false);
+    Speech.stop();
+    setIsSpeaking(false);
   }, [currentStep]);
 
-  const playAudio = () => {
-    if (isPlaying) {
-      player.pause();
-      setIsPlaying(false);
+  const toggleSpeech = () => {
+    if (isSpeaking) {
+      Speech.stop();
+      setIsSpeaking(false);
     } else {
-      player.play();
-      setIsPlaying(true);
+      setIsSpeaking(true);
+      Speech.speak(TUTORIAL_STEPS[currentStep].speech, {
+        language: "pt-BR",
+        rate: 0.95,
+        onDone: () => setIsSpeaking(false),
+        onStopped: () => setIsSpeaking(false),
+        onError: () => setIsSpeaking(false),
+      });
     }
   };
 
   const nextStep = () => {
     if (currentStep < TUTORIAL_STEPS.length - 1) {
-      player.pause();
-      setIsPlaying(false);
+      Speech.stop();
+      setIsSpeaking(false);
       setCurrentStep(currentStep + 1);
     } else {
       finishTutorial();
@@ -113,21 +118,21 @@ export default function TutorialScreen() {
 
   const prevStep = () => {
     if (currentStep > 0) {
-      player.pause();
-      setIsPlaying(false);
+      Speech.stop();
+      setIsSpeaking(false);
       setCurrentStep(currentStep - 1);
     }
   };
 
   const skipTutorial = async () => {
     await AsyncStorage.setItem("tutorialCompleted", "true");
-    player.pause();
+    Speech.stop();
     router.back();
   };
 
   const finishTutorial = async () => {
     await AsyncStorage.setItem("tutorialCompleted", "true");
-    player.pause();
+    Speech.stop();
     router.replace("/(tabs)");
   };
 
@@ -181,21 +186,10 @@ export default function TutorialScreen() {
               elevation: 10,
             }}
           >
-            {step.videoPath ? (
-              <VideoView
-                style={{ width: "100%", height: "100%" }}
-                player={useVideoPlayer(step.videoPath, (player) => {
-                  player.loop = true;
-                  player.play();
-                })}
-                nativeControls={false}
-              />
-            ) : (
-              <Image
-                source={require("@/assets/images/tutorial-avatar.png")}
-                style={{ width: "100%", height: "100%", resizeMode: "cover" }}
-              />
-            )}
+            <Image
+              source={require("@/assets/images/tutorial-avatar.png")}
+              style={{ width: "100%", height: "100%", resizeMode: "cover" }}
+            />
           </View>
 
           {/* Nome da assistente */}
@@ -214,24 +208,31 @@ export default function TutorialScreen() {
             </Text>
           </View>
 
-          <Text className="text-muted leading-relaxed text-base mb-6">
+          <Text className="text-muted leading-relaxed text-base mb-4">
             {step.description}
           </Text>
+
+          {/* Speech text preview */}
+          <View className="bg-background rounded-xl p-4 mb-4 border border-border">
+            <Text className="text-foreground text-sm leading-relaxed italic">
+              "{step.speech}"
+            </Text>
+          </View>
 
           {/* Play/Pause Button */}
           <TouchableOpacity
             className="rounded-xl p-4 items-center flex-row justify-center gap-3"
             style={{ backgroundColor: colors.primary }}
-            onPress={playAudio}
+            onPress={toggleSpeech}
             activeOpacity={0.8}
           >
             <IconSymbol
-              name={isPlaying ? "pause.fill" : "play.fill"}
+              name={isSpeaking ? "pause.fill" : "play.fill"}
               size={24}
               color={colors.background}
             />
             <Text className="text-background text-base font-semibold">
-              {isPlaying ? "Pausar Áudio" : "Ouvir Explicação"}
+              {isSpeaking ? "Pausar Áudio" : "Ouvir em Português"}
             </Text>
           </TouchableOpacity>
         </View>
