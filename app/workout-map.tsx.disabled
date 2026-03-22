@@ -1,0 +1,116 @@
+import { View, Text, TouchableOpacity, Platform } from "react-native";
+import { router, useLocalSearchParams } from "expo-router";
+import { useState, useEffect } from "react";
+import { ScreenContainer } from "@/components/screen-container";
+import { IconSymbol } from "@/components/ui/icon-symbol";
+import { useColors } from "@/hooks/use-colors";
+import { GoogleMaps, AppleMaps } from "expo-maps";
+
+export default function WorkoutMapScreen() {
+  const colors = useColors();
+  const params = useLocalSearchParams();
+  
+  // Dados simulados de rota GPS (em produção viriam do treino salvo)
+  const route = [
+    { latitude: -23.5505, longitude: -46.6333 },
+    { latitude: -23.5515, longitude: -46.6343 },
+    { latitude: -23.5525, longitude: -46.6353 },
+    { latitude: -23.5535, longitude: -46.6363 },
+    { latitude: -23.5545, longitude: -46.6373 },
+  ];
+
+  const initialRegion = {
+    latitude: route[0].latitude,
+    longitude: route[0].longitude,
+    latitudeDelta: 0.01,
+    longitudeDelta: 0.01,
+  };
+
+  const MapsView = Platform.OS === "ios" ? AppleMaps.View : GoogleMaps.View;
+
+  if (Platform.OS === "web") {
+    return (
+      <ScreenContainer edges={["top", "left", "right"]}>
+        <View className="flex-1">
+          <View className="flex-row items-center justify-between p-6 border-b border-border">
+            <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
+              <IconSymbol name="arrow.left" size={24} color={colors.foreground} />
+            </TouchableOpacity>
+            <Text className="text-foreground text-xl font-bold">Mapa do Treino</Text>
+            <View style={{ width: 24 }} />
+          </View>
+          <View className="flex-1 items-center justify-center p-6">
+            <IconSymbol name="map.fill" size={64} color={colors.muted} />
+            <Text className="text-muted text-center mt-4">
+              Mapas não estão disponíveis na versão web.{"\n"}
+              Use o aplicativo no dispositivo móvel para visualizar rotas GPS.
+            </Text>
+          </View>
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  return (
+    <ScreenContainer edges={["top", "left", "right"]}>
+      <View className="flex-1">
+        {/* Header */}
+        <View className="flex-row items-center justify-between p-6 border-b border-border">
+          <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
+            <IconSymbol name="arrow.left" size={24} color={colors.foreground} />
+          </TouchableOpacity>
+          <Text className="text-foreground text-xl font-bold">Mapa do Treino</Text>
+          <View style={{ width: 24 }} />
+        </View>
+
+        {/* Mapa */}
+        <View className="flex-1">
+          <MapsView
+            style={{ flex: 1 }}
+            initialCamera={{
+              center: initialRegion,
+              zoom: 15,
+            }}
+            markers={[
+              {
+                position: route[0],
+                title: "Início",
+                color: colors.success,
+              },
+              {
+                position: route[route.length - 1],
+                title: "Fim",
+                color: colors.error,
+              },
+            ]}
+            polylines={[
+              {
+                path: route,
+                color: colors.health,
+                strokeWidth: 4,
+              },
+            ]}
+          />
+        </View>
+
+        {/* Info Card */}
+        <View className="absolute bottom-6 left-6 right-6 bg-surface rounded-2xl p-5 border border-border">
+          <View className="flex-row justify-between">
+            <View>
+              <Text className="text-muted text-sm mb-1">Distância</Text>
+              <Text className="text-foreground text-xl font-bold">5.2 km</Text>
+            </View>
+            <View>
+              <Text className="text-muted text-sm mb-1">Duração</Text>
+              <Text className="text-foreground text-xl font-bold">32 min</Text>
+            </View>
+            <View>
+              <Text className="text-muted text-sm mb-1">Pace</Text>
+              <Text className="text-foreground text-xl font-bold">6:09/km</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+    </ScreenContainer>
+  );
+}
